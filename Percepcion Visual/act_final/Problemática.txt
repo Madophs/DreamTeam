@@ -1,0 +1,2 @@
+Basura en lugares públicos.
+Detección de basura (botellas) en lugares públicos (parques) como herramienta para gestionar de una mejor manera a los equipos de limpieza priorizando áreas con mayor densidad de basura.
