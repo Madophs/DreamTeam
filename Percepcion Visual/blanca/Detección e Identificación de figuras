@@ -1,0 +1,80 @@
+#18/07/2021
+#Basado en los codigos de Jehú Ruiz, Gabriela Solano y Luis Del Valle
+#Blanca Triana
+
+import numpy as np
+import cv2
+ 
+# Cargamos la imagen
+original = cv2.imread("monedas1.jpg")
+cv2.imshow("original", original)
+
+# Convertimos a escala de grises
+gris = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+ 
+# Aplicar suavizado Gaussiano
+gauss = cv2.GaussianBlur(gris, (5,5), 0)
+ 
+cv2.imshow("suavizado", gauss)
+
+# Detectamos los bordes con Canny
+
+canny = cv2.Canny(gauss, 50, 150)
+ 
+cv2.imshow("canny", canny)
+
+# Buscamos los contornos
+(contornos,_) = cv2.findContours(canny.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Mostramos el número de contornos encontrados
+print("He encontrado {} objetos".format(len(contornos)))
+
+i=0
+#Identificacion de figuras
+for c in contornos:
+    epsilon = 0.01*cv2.arcLength (c, True)
+    approxim = cv2.approxPolyDP(c, epsilon, True)
+    triangles_count, rectangles_count, pentagon_count = 0, 0, 0
+    hexagon_count, octagon_count, circle_count = 0, 0, 0
+    M=cv2.moments(c)
+    if (M["m00"]==0): M["m00"]=1
+    x=int(M["m10"]/M["m00"])
+    y=int(M['m01']/M['m00'])
+
+    mensaje = 'Num :' + str(i+1)
+    cv2.putText(original,mensaje,(x-40,y),0,0.75,
+        (255,0,0),2,cv2.LINE_AA)
+    cv2.drawContours(original, [c], 0, (255,0,0),2)
+    cv2.imshow('Original', original)
+    cv2.waitKey(0)
+    i = i+1
+    k, j = approxim[0][0]
+    if len(approxim) == 3:
+        cv2.putText(original, "Triangle", (k, j), 0, 0.5, 0, 1)
+        triangles_count += 1
+    elif len(approxim) == 4:
+        cv2.putText(original, "Rectangle", (k, j), 0, 0.5, 0, 1)
+        rectangles_count += 1
+    elif len(approxim) == 5:
+        cv2.putText(original, "Pentagon", (k, j), 0, 0.5, 0, 1)
+        pentagon_count += 1
+    elif len(approxim) == 6:
+        cv2.putText(original, "Hexagon", (k, j), 0, 0.5, 0, 1)
+        hexagon_count += 1
+    elif len(approxim) == 8:
+        cv2.putText(original, "Octagon", (k, j), 0, 0.5, 0, 1)
+        octagon_count += 1
+    # se considera circulo arriba de 16 vertices
+    elif len(approxim) >= 16:
+        cv2.putText(original, "Circle", (k, j), 0, 0.5, 0, 1)
+        circle_count += 1
+
+
+    print("Triangles:", triangles_count)
+    print("Rectangles: ", rectangles_count)
+    print("Pentagons: ", pentagon_count)
+    print("hexagons: ", hexagon_count)
+    print("Octagons: ", octagon_count)
+    print("Circles: ", circle_count)
+
+cv2.destroyAllWindows()
