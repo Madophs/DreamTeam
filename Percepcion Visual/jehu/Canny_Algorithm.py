@@ -14,7 +14,10 @@ class CannyFilter():
 
     def __init__(self, img_name):
         self.img_name = img_name
-        self.original_img = None
+        self.original_img = cv.imread(self.img_name)
+
+        if self.original_img is None:
+            raise Exception("[ERROR] Image not found in path.")
 
     def get_original_image(self):
         return self.original_img
@@ -94,7 +97,7 @@ class CannyFilter():
                 # Neighbours in the X axis
                 if gradient_angle <= 22.5:
                     neighb_x_1, neighb_y_1 = x, y - 1
-                    neighb_x_2, neighb_y_2 = x, y - 1
+                    neighb_x_2, neighb_y_2 = x, y + 1
                 # Neighbours in the right diagonal (\) from picture perspective
                 elif gradient_angle > 22.5 and gradient_angle <= (22.5 + 45.0):
                     neighb_x_1, neighb_y_1 = x - 1, y - 1
@@ -125,13 +128,9 @@ class CannyFilter():
 
 
     def applyFilter(self):
-        # Let's apply a grayscaling for easy manipulation
-        self.original_img = cv.imread(self.img_name)
-
-        if self.original_img is None:
-            raise Exception("[ERROR] Image not found in path.")
-
+        # Convert to gray scale to easy manipulation
         self.original_img = cv.cvtColor(self.original_img, cv.COLOR_BGR2GRAY)
+
         # Let's remove some noisy using a Gausassian filter
         output_img = cv.GaussianBlur(self.original_img, (5, 5), 1.4)
 
@@ -153,18 +152,93 @@ class CannyFilter():
                 grad_mag = magnitudes[x, y]
                 if grad_mag < threshold_min:
                     magnitudes[x, y] = 0
+                else:
+                    magnitudes[x, y] = 255
+
         return magnitudes
 
+# Apply the closing morphological filter to the input image
+# and return an image with a Grayscale
+def closing_filter(input_image):
+    morph_kernel = cv.getStructuringElement(cv.MORPH_OPEN, (5, 5))
+    image_with_closing_filter = cv.morphologyEx(input_image, cv.MORPH_CLOSE, morph_kernel)
 
-images_arr = ["house.jpg", "lambo.png", "transit1.jpg"]
+    # Important return the image in Grayscale (8 bits)
+    return image_with_closing_filter.astype(np.uint8)
+
+# Count the figures found in the image and return the input image with the labels
+def countFigures(input_image, image_with_edges):
+
+    triangles_count, rectables_count, pentagon_count = 0, 0, 0
+    hexagon_count, octagon_count, circle_count = 0, 0, 0
+
+    # Find the image contours
+    image_contours, _ = cv.findContours(image_with_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    for count in image_contours:
+        # Epsilon is the approximation accuracy
+        epsilon = 0.01 * cv.arcLength(count, True)
+        approximations = cv.approxPolyDP(count, epsilon, True)
+
+        cv.drawContours(input_image, [approximations], 0, (0), 2)
+
+        # Name of the detected shapes are written on the image in spanish :)
+        i, j = approximations[0][0]
+        if len(approximations) == 3:
+            cv.putText(input_image, "Triangle", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            triangles_count += 1
+        elif len(approximations) == 4:
+            cv.putText(input_image, "Rectangle", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            rectables_count += 1
+        elif len(approximations) == 5:
+            cv.putText(input_image, "Pentagon", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            pentagon_count += 1
+        elif len(approximations) == 6:
+            cv.putText(input_image, "Hexagon", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            hexagon_count += 1
+        elif len(approximations) == 8:
+            cv.putText(input_image, "Octagon", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            octagon_count += 1
+        # Let's consider anything above 12 verteces as circle
+        elif len(approximations) >= 12:
+            cv.putText(input_image, "Circle", (i, j), cv.FONT_HERSHEY_COMPLEX, 0.5, 0, 1)
+            circle_count += 1
+
+
+    print("Triangles:", triangles_count)
+    print("Rectangles: ", rectables_count)
+    print("Pentagons: ", pentagon_count)
+    print("hexagons: ", hexagon_count)
+    print("Octagons: ", octagon_count)
+    print("Circles: ", circle_count)
+
+    # Return the input image with the labels on it
+    return input_image
+
+
+print("CAPTCHA SOLVER")
+images_arr = ["figures4.jpg", "figures5.png", "figures2.png"]
+test_case = 1
 for image_name in images_arr:
+
+    print("Case #" + str(test_case),", Image: ", image_name, sep='')
+
+    # Edge detection by Canny algorithm
     cannyFilter = CannyFilter(image_name)
-    output_img = cannyFilter.applyFilter()
+    image_with_edges = cannyFilter.applyFilter()
+    original_image = cv.imread(image_name)
+
+    # Apply closure filter
+    image_with_edges = closing_filter(image_with_edges)
+
+    # Count the figures
+    image_with_labels = countFigures(original_image, image_with_edges)
 
     cv.imshow("Original image", cannyFilter.get_original_image())
-    cv.imshow("Output image", output_img)
+    cv.imshow("Image with edges", image_with_edges)
+    cv.imshow("Image with labels", image_with_labels)
 
-    print("Press any key to continue")
+    print("Press any key to continue\n")
     cv.waitKey(60000)
     cv.destroyAllWindows()
+    test_case += 1
 
